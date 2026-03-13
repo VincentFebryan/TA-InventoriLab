@@ -62,7 +62,8 @@
                             <th>Id detail</th> --}}
                             <th>Invoice</th>
                             <th>Tanggal</th>
-                            <th>SupKonProy</th>
+                            <th>Supplier</th>
+                            <th>Konsumen</th>
                             <th>Nama Staff</th>
                             <th>Jenis Penerimaan</th>
                             <th>Nama Pengantar</th>
@@ -88,9 +89,10 @@
                                     <td>{{ $barang->id }}</td> --}}
                                     <td>{{ $barang->penerimaanBarang->invoice ?? 'N/A' }}</td>
                                     <td>{{ $barang->penerimaanBarang->tanggal ?? 'N/A' }}</td>
-                                    <td>{{ $barang->penerimaanBarang->supkonpro->nama ?? 'N/A' }}</td>
+                                    <td>{{ $barang->penerimaanBarang->supplier->nama ?? 'N/A' }}</td>
+                                    <td>{{ $barang->penerimaanBarang->konsumen->nama ?? 'N/A' }}</td>
                                     <td>{{ $barang->penerimaanBarang->user->name ?? 'N/A' }}</td>
-                                    <td>{{ $barang->penerimaanBarang->jenispenerimaanbarang->jenis ?? 'N/A' }}</td>
+                                    <td>{{ $barang->penerimaanBarang->jenisPenerimaanBarang->jenis ?? 'N/A' }}</td>
                                     <td>{{ $barang->penerimaanBarang->nama_pengantar }}</td>
                                     <td>{{ $barang->penerimaanBarang->keterangan }}</td>
                                     <td>{{ $barang->barang->nama_barang ?? 'N/A' }}</td>

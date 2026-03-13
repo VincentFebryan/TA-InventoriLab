@@ -25,9 +25,17 @@ class DetailPenerimaanBarang extends Model
     {
         return $this->belongsTo(barang::class, 'barang_id');
     }
-    public function supkonpro()
+    public function proyek()
     {
-        return $this->belongsTo(supkonpro::class, 'supkonpro_id');
+        return $this->belongsTo(proyek::class, 'proyek_id');
+    }
+    public function supplier()
+    {
+        return $this->belongsTo(supplier::class, 'supplier_id');
+    }
+    public function konsumen()
+    {
+        return $this->belongsTo(konsumen::class, 'konsumen_id');
     }
     public function user()
     {

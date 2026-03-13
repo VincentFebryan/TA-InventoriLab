@@ -9,7 +9,8 @@ class PenerimaanBarang extends Model
     protected $table = 'master_penerimaan_barangs';
 
     protected $fillable = [
-        'supkonpro_id',
+        'supplier_id',
+        'konsumen_id',
         'user_id',
         'jenis_id',
         'nama_pengantar',
@@ -17,9 +18,16 @@ class PenerimaanBarang extends Model
         'harga_invoice',
     ];
 
-    public function supkonpro()
+    public function jenisPenerimaan() {
+        return $this->belongsTo(JenisPenerimaan::class, 'jenis_id');
+    }
+    public function supplier()
     {
-        return $this->belongsTo(supkonpro::class, 'supkonpro_id');
+        return $this->belongsTo(Supplier::class, 'supplier_id');
+    }
+    public function konsumen()
+    {
+        return $this->belongsTo(Konsumen::class, 'konsumen_id');
     }
     public function user()
     {

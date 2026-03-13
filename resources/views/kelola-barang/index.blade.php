@@ -115,7 +115,7 @@
                                     <td style="text-align: right;">{{ $barang->stok }}</td>
                                     <td>{{ $barang->jenisBarang->satuan_stok ?? 'N/A' }}</td>
                                     <td>{{ $barang->kadaluarsa }}</td>
-                                    <td>{{ $barang->lokasi }}</td>
+                                    <td>{{ $barang->gudang->nama ?? 'N/A'}}</td>
                                     <td>{{ $barang->status_barang }}</td>
                                     <td>{{ $barang->plate }}</td>
                                     <td><a href="/edit-barang/{{ $barang->id }}" class="btn btn-primary btn-sm">Edit</a></td>

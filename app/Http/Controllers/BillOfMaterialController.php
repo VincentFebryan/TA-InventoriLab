@@ -22,19 +22,14 @@ class BillOfMaterialController extends Controller
     {
         $request->validate([
             'kode_bom' => 'required|unique:bill_of_materials',
-            'nama_material' => 'required',
-            'jumlah' => 'required|integer',
-            'satuan' => 'required',
-            'harga_per_unit' => 'required|numeric',
+            'nama_bom' => 'required',
+            'keterangan' => 'required',
         ]);
 
         BillOfMaterial::create([
             'kode_bom' => $request->kode_bom,
-            'nama_material' => $request->nama_material,
-            'jumlah' => $request->jumlah,
-            'satuan' => $request->satuan,
-            'harga_per_unit' => $request->harga_per_unit,
-            'total_harga' => $request->jumlah * $request->harga_per_unit,
+            'nama_bom' => $request->nama_bom,
+            'keterangan' => $request->keterangan,
         ]);
 
         return redirect()->route('bill_of_materials.index')->with('success', 'Data BOM berhasil ditambahkan!');
@@ -50,20 +45,15 @@ class BillOfMaterialController extends Controller
     {
         $request->validate([
             'kode_bom' => 'required|unique:bill_of_materials,kode_bom,'.$id,
-            'nama_material' => 'required',
-            'jumlah' => 'required|integer',
-            'satuan' => 'required',
-            'harga_per_unit' => 'required|numeric',
+            'nama_bom' => 'required',
+            'keterangan' => 'required',
         ]);
 
         $bom = BillOfMaterial::findOrFail($id);
         $bom->update([
             'kode_bom' => $request->kode_bom,
-            'nama_material' => $request->nama_material,
-            'jumlah' => $request->jumlah,
-            'satuan' => $request->satuan,
-            'harga_per_unit' => $request->harga_per_unit,
-            'total_harga' => $request->jumlah * $request->harga_per_unit,
+            'nama_bom' => $request->nama_bom,
+            'keterangan' => $request->keterangan,
         ]);
 
         return redirect()->route('bill_of_materials.index')->with('success', 'Data BOM berhasil diperbarui!');
@@ -75,14 +65,6 @@ class BillOfMaterialController extends Controller
         $bom->delete();
 
         return redirect()->route('bill_of_materials.index')->with('success', 'Data BOM berhasil dihapus!');
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(BillOfMaterial $billOfMaterial)
-    {
-        //
     }
 
 

@@ -5,7 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\barang;
 use App\Models\DetailPengeluaranBarang;
-use App\Models\supkonpro;
+use App\Models\Supplier;
+use App\Models\Konsumen;
 use Illuminate\Http\Request;
 use App\Models\JenisPengeluaran;
 use App\Models\PengeluaranBarang;
@@ -23,80 +24,110 @@ class PengeluaranBarangController extends Controller
     {
         // Ambil jumlah item per halaman dari request, default 5
         $perPage = $request->input('perPage', 5);
-        
-        // Mengambil data berdasarkan pagination
-        $all_detail_pengeluarans = detailPengeluaranBarang::orderBy('created_at', 'desc')
-            ->paginate($perPage)  // Apply pagination based on 'perPage'
-            ->appends(request()->except('page')); // Maintain other query parameters like search or filters
 
-        // Ambil data untuk dropdown
-        $all_supkonpros = supkonpro::all();
+        // Ambil data pengeluaran barang detail beserta relasinya dengan pagination
+        $all_detail_pengeluarans = DetailPengeluaranBarang::with([
+                'barang',
+                'masterPengeluaran.user',
+                'masterPengeluaran.supplier',
+                'masterPengeluaran.konsumen',
+                'masterPengeluaran.jenisPengeluaran'
+            ])
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage)
+            ->appends(request()->except('page'));
+
+        // Ambil data untuk dropdown atau filter jika diperlukan di view
+        $all_suppliers = Supplier::all();
+        $all_konsumens = Konsumen::all();
         $all_users = User::all();
         $all_jenis_pengeluarans = JenisPengeluaran::all();
-        $all_master_pengeluarans = PengeluaranBarang::all();
 
-        // Return view dengan data yang sudah dipaginasi
-        return view('barang-keluar.index',compact('all_master_pengeluarans', 'all_supkonpros', 
-                     'all_detail_pengeluarans','all_users', 'all_jenis_pengeluarans'));
+        return view('barang-keluar.index', compact(
+            'all_detail_pengeluarans',
+            'all_suppliers',
+            'all_konsumens',
+            'all_users',
+            'all_jenis_pengeluarans'
+        ));
     }
 
+    // ubah
     public function BarangKeluarSearch(Request $request)
     {
-        // Get the search query from the input
+        // Ambil input pencarian dan jumlah item per halaman
         $query = $request->input('query');
-
-        // Set the number of items per page (pagination)
         $perPage = $request->input('perPage', 5);
 
-        // Split the query into individual keywords
+        // Pisahkan query menjadi kata kunci individual
         $keywords = explode(' ', $query);
 
-        // Perform the search
-        $all_detail_pengeluarans = detailPengeluaranBarang::where(function ($q) use ($keywords) {
-            foreach ($keywords as $word) {
-                $q->where(function ($subQuery) use ($word) {
-                    $subQuery->whereHas('pengeluaranBarang', function ($innerQuery) use ($word) {
-                        $innerQuery->where('invoice', 'like', "%$word%")
-                            ->orWhere('tanggal', 'like', "%$word%")
-                            ->orWhere('keterangan', 'like', "%$word%")
-                            ->orWhereHas('supkonpro', function ($relatedQuery) use ($word) {
-                                $relatedQuery->where('nama', 'like', "%$word%");
+        // Lakukan pencarian pada detail pengeluaran barang dan relasinya
+        $all_detail_pengeluarans = DetailPengeluaranBarang::with([
+                'barang',
+                'masterPengeluaran.user',
+                'masterPengeluaran.supplier',
+                'masterPengeluaran.konsumen',
+                'masterPengeluaran.jenisPengeluaran'
+            ])
+            ->where(function ($q) use ($keywords) {
+                foreach ($keywords as $word) {
+                    $q->where(function ($subQuery) use ($word) {
+                        $subQuery->whereHas('masterPengeluaran', function ($mq) use ($word) {
+                                $mq->where('invoice', 'like', "%$word%")
+                                ->orWhere('tanggal', 'like', "%$word%")
+                                ->orWhere('keterangan', 'like', "%$word%")
+                                ->orWhere('nama_pengambil', 'like', "%$word%")
+                                ->orWhereHas('supplier', function ($rq) use ($word) {
+                                    $rq->where('nama', 'like', "%$word%");
+                                })
+                                ->orWhereHas('konsumen', function ($rq) use ($word) {
+                                    $rq->where('nama', 'like', "%$word%");
+                                })
+                                ->orWhereHas('user', function ($rq) use ($word) {
+                                    $rq->where('name', 'like', "%$word%");
+                                })
+                                ->orWhereHas('jenisPengeluaran', function ($rq) use ($word) {
+                                    $rq->where('jenis', 'like', "%$word%");
+                                });
                             })
-                            ->orWhereHas('user', function ($relatedQuery) use ($word) {
-                                $relatedQuery->where('name', 'like', "%$word%");
+                            ->orWhereHas('barang', function ($bq) use ($word) {
+                                $bq->where('nama_barang', 'like', "%$word%");
                             })
-                            ->orWhereHas('jenispengeluaranbarang', function ($relatedQuery) use ($word) {
-                                $relatedQuery->where('jenis', 'like', "%$word%");
-                            })
-                            ->orWhere('nama_pengambil', 'like', "%$word%");
-                    })
-                    ->orWhereHas('barang', function ($innerQuery) use ($word) {
-                        $innerQuery->where('nama_barang', 'like', "%$word%");
-                    })
-                    ->orWhere('jumlah_keluar', 'like', "%$word%")
-                    ->orWhere('harga', 'like', "%$word%")
-                    ->orWhere('total_harga', 'like', "%$word%");
-                });
-            }
-        })
-        ->paginate($perPage) // Use pagination for results
-        ->appends(request()->except('page')); // Preserve other parameters like query and perPage
+                            ->orWhere('jumlah_keluar', 'like', "%$word%")
+                            ->orWhere('harga', 'like', "%$word%")
+                            ->orWhere('total_harga', 'like', "%$word%");
+                    });
+                }
+            })
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage)
+            ->appends(request()->except('page'));
+
         return view('barang-keluar.index', compact('all_detail_pengeluarans'));
     }
+
 
     public function loadAddBarangKeluarForm()
     {
         $all_master_pengeluarans = PengeluaranBarang::all();
-        $all_supkonpros = supkonpro::all();
+        $all_suppliers = Supplier::all();  // Fetch all suppliers
+        $all_konsumens = Konsumen::all();  // Fetch all konsumens
         $all_users = User::all();
         $all_jenis_pengeluarans = JenisPengeluaran::all();
-        $user = Auth::user(); 
+        $user = Auth::user();
         $all_barangs = Barang::all()->groupBy('nama_barang')->map(function ($barangGroup) {
-            return $barangGroup->sortBy('kadaluarsa')->first();  // Ambil barang dengan kadaluarsa paling dekat
+            return $barangGroup->sortBy('kadaluarsa')->first();  // Get the item with the closest expiration
         });
-        
+
+        // Pass all the data to the view
         return view('barang-keluar.add-barang-keluar', compact(
-            'all_master_pengeluarans', 'all_supkonpros', 'all_users', 'all_jenis_pengeluarans', 'user',
+            'all_master_pengeluarans',
+            'all_users',
+            'all_jenis_pengeluarans',
+            'all_suppliers',
+            'all_konsumens',
+            'user',
             'all_barangs'
         ));
     }
@@ -105,9 +136,10 @@ class PengeluaranBarangController extends Controller
     {
         $request->validate([
             'jenis_id' => 'required',
-            'supkonpro_id' => 'nullable',
             'user_id' => 'required|exists:users,id',
             'nama_pengambil' => 'required|string',
+            'supplier_id' => 'required|exists:suppliers,id',   // validasi supplier
+            'konsumen_id' => 'required|exists:konsumens,id',   // validasi konsumen
             'barang_id' => 'required|array',
             'jumlah_keluar' => ['required', 'array', function ($attribute, $value, $fail) {
                 foreach ($value as $jumlah_keluar) {
@@ -126,24 +158,25 @@ class PengeluaranBarangController extends Controller
 
         $jenisBarang = JenisPengeluaran::find($request->jenis_id);
         if ($jenisBarang && $jenisBarang->id === 0) {
-            $request->merge(['supkonpro_id' => 0]);
+
         }
 
         // Menyimpan data pengeluaran barang
         $barangKeluar = new PengeluaranBarang();
         $barangKeluar->jenis_id = $request->jenis_id;
-        $barangKeluar->supkonpro_id = $request->supkonpro_id;
         $barangKeluar->nama_pengambil = $request->nama_pengambil;
         $barangKeluar->tanggal = $request->tanggal;
         $barangKeluar->invoice = $request->invoice;
         $barangKeluar->keterangan = $request->keterangan;
         $barangKeluar->user_id = $request->user_id;
+        $barangKeluar->supplier_id = $request->supplier_id;  // simpan supplier_id
+        $barangKeluar->konsumen_id = $request->konsumen_id;  // simpan konsumen_id
         $barangKeluar->harga_invoice = str_replace(',', '', $request->harga_invoice);
         $barangKeluar->save();
 
-        // Menyimpan detail pengeluaran barang dan mengurangi stok
+        // Simpan detail pengeluaran dan update stok (tidak berubah)
         foreach ($request->barang_id as $key => $barangId) {
-            $detail = new detailPengeluaranBarang();
+            $detail = new DetailPengeluaranBarang();
             $detail->master_pengeluaran_barang_id = $barangKeluar->id;
             $detail->barang_id = $barangId;
             $detail->jumlah_keluar = $request->jumlah_keluar[$key];
@@ -155,39 +188,11 @@ class PengeluaranBarangController extends Controller
             $barang = Barang::findOrFail($barangId);
             $barang->stok -= $request->jumlah_keluar[$key];
             $barang->save();
-            
-            // // Update saldo_awals berdasarkan bulan dan barang_id
-            // $tanggal = \Carbon\Carbon::parse($request->tanggal);
-            // $bulan = $tanggal->month;  // Ambil bulan dari tanggal pengeluaran
-            // $tahun = $tanggal->year;   // Ambil tahun dari tanggal pengeluaran
-
-            // // Cek apakah saldo_awals sudah ada untuk bulan dan tahun tersebut dan barang_id yang sama
-            // $saldoAwal = SaldoAwal::where('barang_id', $barangId)
-            //                     ->where('bulan', $bulan)
-            //                     ->where('tahun', $tahun)  // Pastikan juga sesuai dengan tahun
-            //                     ->first();
-
-            // if ($saldoAwal) {
-            //     // Jika saldo_awals sudah ada, update saldo_terima
-            //     $saldoAwal->total_keluar += str_replace(',', '', $request->jumlah_keluar[$key]);
-            //     $saldoAwal->saldo_akhir -= str_replace(',', '', $request->jumlah_keluar[$key]);
-            //     $saldoAwal->save();
-            // } else {
-            //     // Jika saldo_awals belum ada, buat saldo baru
-            //     $saldoAwal = new SaldoAwal();
-            //     $saldoAwal->barang_id = $barangId;
-            //     $saldoAwal->bulan = $bulan;
-            //     $saldoAwal->tahun = $tahun;  // Set tahun
-            //     $saldoAwal->total_keluar = str_replace(',', '', $request->jumlah_keluar[$key]);
-            //     $saldoAwal->saldo_awal = 0; 
-            //     $saldoAwal->total_terima = 0; 
-            //     $saldoAwal->saldo_akhir -=  $saldoAwal->total_keluar; 
-            //     $saldoAwal->save();
-            // }
         }
 
         return redirect()->route('master-barang-keluar')->with('success', 'Barang Keluar berhasil ditambahkan.');
     }
+
 
     public function generateInvoicePengeluaran(Request $request)
     {
@@ -280,26 +285,24 @@ class PengeluaranBarangController extends Controller
     public function detailPengeluaranBarang($id)
     {
         $master_pengeluaran = PengeluaranBarang::findOrFail($id);
-        $supkonpro = supkonpro::findOrFail($master_pengeluaran->supkonpro_id);
         $user = User::findOrFail($master_pengeluaran->user_id);
         $jenis_pengeluaran = JenisPengeluaran::findOrFail($master_pengeluaran->jenis_id);
         $detail_pengeluaran = DetailPengeluaranBarang::where('master_pengeluaran_barang_id', $id)->get();
 
         return view('barang-keluar.detail-barang-keluar', compact(
-            'master_pengeluaran', 'supkonpro', 'user', 'jenis_pengeluaran', 'detail_pengeluaran',
+            'master_pengeluaran', 'user', 'jenis_pengeluaran', 'detail_pengeluaran',
         ));
     }
     
     public function loadAllDetailPengeluaranBarang(){
         $all_detail_pengeluarans= DetailPengeluaranBarang::all();
         $all_master_pengeluarans = PengeluaranBarang::all();
-        $all_supkonpros = supkonpro::all();
         $all_users = User::all();
         $all_jenis_pengeluaran = JenisPengeluaran::all();
         $all_barangs = barang::all();
         
         return view('barang-keluar.index-detail',compact('all_detail_pengeluarans',
-                    'all_master_pengeluarans', 'all_supkonpros', 
+                    'all_master_pengeluarans', 
                     'all_users', 'all_jenis_pengeluaran', 'all_barangs'));
     }
     
@@ -387,16 +390,20 @@ class PengeluaranBarangController extends Controller
     public function loadEditBarangKeluarForm($id)
     {
         $detail_pengeluaran = DetailPengeluaranBarang::findOrFail($id);
+
+        // Pastikan relasi 'pengeluaranBarang' sudah terdefinisi di model DetailPengeluaranBarang
         $masterPengeluaran = $detail_pengeluaran->pengeluaranBarang;
-        $all_supkonpros = supkonpro::all();
+
         $all_users = User::all();
         $all_jenis_pengeluarans = JenisPengeluaran::all();
+        $all_suppliers = Supplier::all();     // Tambahkan supplier
+        $all_konsumens = Konsumen::all();     // Tambahkan konsumen
         $user = Auth::user(); 
-        $all_barangs = barang::all();
-        
+        $all_barangs = Barang::all();
+
         return view('barang-keluar.edit-barang-keluar', compact(
-            'masterPengeluaran', 'all_supkonpros', 'all_users', 'all_jenis_pengeluarans', 'user',
-            'all_barangs', 'detail_pengeluaran'
+            'masterPengeluaran', 'all_users', 'all_jenis_pengeluarans', 'user',
+            'all_barangs', 'detail_pengeluaran', 'all_suppliers', 'all_konsumens'
         ));
     }
 
@@ -409,52 +416,81 @@ class PengeluaranBarangController extends Controller
             'jumlah_keluar' => 'required',
             'harga' => 'required',
             'total_harga' => 'required',
+            'supplier_id' => 'nullable|exists:suppliers,id',
+            'konsumen_id' => 'nullable|exists:konsumens,id',
         ]);
-    
-        // Menghapus format angka (titik) untuk harga dan total_harga
+
+        // Hapus format angka (titik) pada harga dan total_harga
         $harga = str_replace('.', '', $request->input('harga'));
         $total_harga = str_replace('.', '', $request->input('total_harga'));
-    
+
         try {
-            $detailPengeluaranBarang = detailPengeluaranBarang::findOrFail($request->detail_pengeluaran_id);
+            $detailPengeluaranBarang = DetailPengeluaranBarang::findOrFail($request->detail_pengeluaran_id);
             $masterPengeluaran = PengeluaranBarang::findOrFail($request->masterPengeluaran_id);
-    
+
             // Hitung selisih total harga
             $selisihTotalHarga = $total_harga - $detailPengeluaranBarang->total_harga;
-    
+
+            // Update detail pengeluaran
             $detailPengeluaranBarang->update([
                 'jumlah_diterima' => $request->jumlah_keluar,
                 'harga' => $harga,
                 'total_harga' => $total_harga,
             ]);
-    
+
+            // Update master pengeluaran (harga_invoice + supplier & konsumen)
             $masterPengeluaran->harga_invoice += $selisihTotalHarga;
+            $masterPengeluaran->supplier_id = $request->supplier_id;
+            $masterPengeluaran->konsumen_id = $request->konsumen_id;
             $masterPengeluaran->save();
-    
+
+            // Update stok barang
             $barang = Barang::findOrFail($request->barang_id);
             $selisihJumlah = $request->jumlah_keluar - $detailPengeluaranBarang->jumlah_keluar;
             $barang->stok += $selisihJumlah;
             $barang->save();
+
             return redirect('/master-barang-keluar/')->with('success', 'Edit Successfully');
-            } catch (\Exception $e) {
-                return redirect('/edit-pengeluaran-barang/' . $request->detail_pengeluaran_id)->with('fail', $e->getMessage());
-            }
-            // // Update saldo_terima pada saldo_awals
-            // $tanggal = \Carbon\Carbon::parse($request->tanggal);
-            // $bulan = $tanggal->month;  // Ambil bulan dari tanggal pengeluaran
+        } catch (\Exception $e) {
+            return redirect('/edit-pengeluaran-barang/' . $request->detail_pengeluaran_id)->with('fail', $e->getMessage());
+        }
+    }
 
-            // // Cek apakah saldo_awals sudah ada untuk bulan tersebut dan barang_id yang sama
-            // $saldoAwal = SaldoAwal::where('barang_id', $request->barang_id)
-            //                     ->where('bulan', $bulan)
-            //                     ->first();
+    public function create()
+    {
+        $suppliers = Supplier::all();
+        $konsumens = Konsumen::all();
+        $jenis_pengeluarans = JenisPengeluaran::all();
 
-            // if ($saldoAwal) {
-            //     // Update saldo_awals berdasarkan selisih
-            //     $saldoAwal->total_keluar += $selisihJumlah; // Tambahkan selisih total_harga
-            //     $saldoAwal->saldo_akhir = $saldoAwal->saldo_awal + $saldoAwal->total_terima - $saldoAwal->total_keluar;
-            //     // Tambahkan selisih total_harga
-            //     $saldoAwal->save();
-            // }
+        return view('barang-keluar.create', compact('suppliers', 'konsumens', 'jenis_pengeluarans'));
+    }
+
+
+    public function store(Request $request) 
+    {
+        $request->validate([
+            'masterPengeluaran_id' => 'required|exists:master_pengeluaran_barangs,id',
+            'detail_pengeluaran_id' => 'required|exists:detail_pengeluaran_barangs,id',
+            'barang_id' => 'required|exists:barangs,id',
+            'jumlah_keluar' => 'required|numeric|min:1',
+            'harga' => 'required|numeric|min:0',
+            'total_harga' => 'required|numeric|min:0',
+            'supplier_id' => 'required|exists:suppliers,id',
+            'konsumen_id' => 'required|exists:konsumens,id',
+        ]);
+
+        PengeluaranBarang::create([
+            'master_pengeluaran_id' => $request->masterPengeluaran_id,
+            'detail_pengeluaran_id' => $request->detail_pengeluaran_id,
+            'barang_id' => $request->barang_id,
+            'jumlah_keluar' => $request->jumlah_keluar,
+            'harga' => $request->harga,
+            'total_harga' => $request->total_harga,
+            'supplier_id' => $request->supplier_id,
+            'konsumen_id' => $request->konsumen_id,
+        ]);
+
+        return redirect()->route('barangkeluar.index')->with('success', 'Barang berhasil dikeluarkan');
     }
 
 }

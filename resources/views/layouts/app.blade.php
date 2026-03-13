@@ -116,9 +116,9 @@
                 <div id="collapseUtilities" class="collapse" aria-labelledby="headingUtilities"
                     data-parent="#accordionSidebar">
                     <div class="bg-white py-2 collapse-inner rounded">
-                        <a class="collapse-item" href="{{ url('/supkonpro/supplier') }}">Supplier</a>
-                        <a class="collapse-item" href="{{ url('/supkonpro/konsumen') }}">Konsumen</a>
-                        <a class="collapse-item" href="{{ url('/supkonpro/proyek') }}">Proyek</a>
+                        <a class="collapse-item" href="{{ url('/supplier') }}">Supplier</a>
+                        <a class="collapse-item" href="{{ url('/konsumen') }}">Konsumen</a>
+                        <a class="collapse-item" href="{{ url('/proyek') }}">Proyek</a>
 
                     </div>
                 </div>
@@ -130,6 +130,14 @@
                     <span>BOM</span>
                 </a>
             </li>
+
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url('/gudang') }}">
+                    <i class="fas fa-warehouse"></i>
+                    <span>Gudang</span>
+                </a>
+            </li>
+            
 
             <!-- Divider -->
             <hr class="sidebar-divider">
@@ -217,6 +225,7 @@
 
                 </nav>
                  @yield('content')
+                 
                 
                
             </div>

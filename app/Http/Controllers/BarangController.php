@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\barang;
-use App\Models\supkonpro;
 use App\Models\jenis_barang;
 use Illuminate\Http\Request;
 use App\Models\JenisPenerimaan;
@@ -14,6 +13,8 @@ use App\Models\DetailPenerimaanBarang;
 use App\Models\DetailPengeluaranBarang;
 use App\Models\JenisPengeluaran;
 use App\Models\PengeluaranBarang;
+use App\models\Supplier;
+use App\models\Gudang;
 
 class BarangController extends Controller
 {
@@ -40,10 +41,11 @@ class BarangController extends Controller
     
     public function loadAddBarangForm(){
         $jenis_barangs = jenis_barang::all();
+        $gudangs = Gudang::all();
         $lokasi_list = Barang::distinct()->pluck('lokasi')->toArray();
         $status_list = Barang::distinct()->pluck('status_barang')->toArray();
 
-        return view('kelola-barang.add-barang', compact('jenis_barangs', 'lokasi_list', 'status_list'));
+        return view('kelola-barang.add-barang', compact('jenis_barangs',"gudangs",'lokasi_list', 'status_list'));
     }
 
     public function AddBarang(Request $request){
@@ -55,13 +57,14 @@ class BarangController extends Controller
             'jenis_barang_id' => 'required|exists:jenis_barangs,id', 
             'stok' => ['required', 'gt:-1'], 
             'kadaluarsa' => 'nullable|date',
-            'lokasi' => 'required|string',
+            'gudang_id' => 'required|exists:gudangs,id',
             'status_barang' => 'nullable|string',
             'plate' => 'nullable|string',
         ]);
 
         try {
             // Buat objek baru untuk barang
+            $gudangs = Gudang::all();
             $new_barang = new Barang;
             $new_barang->brand = $request->brand;
             $new_barang->nama_barang = $request->nama_barang;
@@ -69,11 +72,11 @@ class BarangController extends Controller
             $new_barang->jenis_barang_id = $request->jenis_barang_id; // Ambil dari input
             $new_barang->stok = $request->stok;
             $new_barang->kadaluarsa = $request->kadaluarsa; // Opsional, bisa null
-            $new_barang->lokasi = $request->lokasi;
+            $new_barang->gudang_id = $request->gudang_id;
             $new_barang->status_barang = $request->status_barang;
             $new_barang->plate = $request->plate;
             $new_barang->save();
-
+            
             return redirect('/kelola-barang')->with('success', 'Barang Added Successfully');
         } catch (\Exception $e) {
             return redirect('/add-barang')->with('fail', $e->getMessage());
@@ -82,8 +85,10 @@ class BarangController extends Controller
 
     public function loadEditForm($id){
         $barang = barang::find($id);
+        $gudangs = Gudang::all(); // Ambil semua gudang
         $jenis_barangs = jenis_barang::all();
-        return view('kelola-barang.edit-barang',compact('barang', 'jenis_barangs'));
+
+        return view('kelola-barang.edit-barang', compact('barang','jenis_barangs','gudangs'));
     }
 
     public function EditBarang(Request $request)
@@ -97,7 +102,7 @@ class BarangController extends Controller
             'jenis_barang_id' => 'required|exists:jenis_barangs,id', // Pastikan jenis_barang_id valid
             'stok' => 'required|numeric',
             'kadaluarsa' => 'nullable|date',
-            'lokasi' => 'required|string',
+            'gudang_id' => 'required|exists:gudangs,id', // Menggunakan gudang_id
             'status_barang' => 'nullable|string',
             'plate' => 'nullable|string',
         ]);
@@ -111,7 +116,7 @@ class BarangController extends Controller
                 'jenis_barang_id' => $request->jenis_barang_id,
                 'stok' => $request->stok,
                 'kadaluarsa' => $request->kadaluarsa,
-                'lokasi' => $request->lokasi,
+                'gudang_id' => $request->gudang_id, // Update gudang_id
                 'status_barang' => $request->status_barang,
                 'plate' => $request->plate,
             ]);
@@ -124,11 +129,10 @@ class BarangController extends Controller
 
     public function deleteBarang($id){
         try {
-            barang::where('id',$id)->delete();
-            return redirect('kelola-barang')->with('success','Barang Deleted successfully!');
+            Barang::where('id', $id)->delete();
+            return redirect('kelola-barang')->with('success', 'Barang Deleted successfully!');
         } catch (\Exception $e) {
-            return redirect('kelola-barang')->with('fail',$e->getMessage());
-            
+            return redirect('kelola-barang')->with('fail', $e->getMessage());
         }
     }
 
@@ -142,7 +146,7 @@ class BarangController extends Controller
         $keywords = explode(' ', $query);
 
         // Use a query builder for searching
-        $all_barangs = barang::with('jenisBarang') // Include relations
+        $all_barangs = Barang::with('jenisBarang') // Include relations
             ->where(function ($q) use ($keywords) {
                 foreach ($keywords as $word) {
                     $q->where(function ($subQuery) use ($word) {
@@ -151,7 +155,6 @@ class BarangController extends Controller
                             ->orWhere('no_catalog', 'like', "%$word%")
                             ->orWhere('stok', 'like', "%$word%")
                             ->orWhere('kadaluarsa', 'like', "%$word%")
-                            ->orWhere('lokasi', 'like', "%$word%")
                             ->orWhere('status_barang', 'like', "%$word%")
                             ->orWhere('plate', 'like', "%$word%")
                             ->orWhereHas('jenisBarang', function ($relatedQuery) use ($word) {
@@ -167,19 +170,17 @@ class BarangController extends Controller
         return view('kelola-barang.index', compact('all_barangs', 'jenis_barangs'));
     }
 
-
     public function detailTransaksiBarang($id)
     {
-        $barang = barang::findOrFail($id);
+        $barang = Barang::findOrFail($id);
 
         $all_master_penerimaans = PenerimaanBarang::whereHas('detailpenerimaanbarang', function ($query) 
             use ($id) { $query->where('barang_id', $id); })->get();
 
-        $all_supkonpros = supkonpro::all();
+        $all_suppliers = Supplier::all();
         $all_users = User::all();
         $all_jenis_penerimaans = JenisPenerimaan::all();
         $all_detail_penerimaans = DetailPenerimaanBarang::where('barang_id', $id)->get();
-
 
         $all_master_pengeluarans = PengeluaranBarang::whereHas('detailpengeluaranbarang', function 
             ($query) use ($id) { $query->where('barang_id', $id); })->get();
@@ -189,14 +190,40 @@ class BarangController extends Controller
         return view('kelola-barang.detail', compact(
             'barang',
             'all_master_penerimaans', 
-            'all_supkonpros', 
+            'all_suppliers', 
             'all_users', 
             'all_jenis_penerimaans', 
             'all_detail_penerimaans',
-
             'all_master_pengeluarans', 
             'all_jenis_pengeluarans',
-            'all_detail_pengeluarans',
+            'all_detail_pengeluarans'
         ));
     }
+
+    public function getBarang()
+    {
+        $barangs = Barang::with('jenisBarang')->get();
+
+        // Mapping data & satuan_stok dari relasi jenisBarang
+        $barangs = $barangs->map(function ($item) {
+            return [
+                'id' => $item->id,
+                'brand' => $item->brand,
+                'nama_barang' => $item->nama_barang,
+                'no_catalog' => $item->no_catalog,
+                'jenis_barang_nama' => $item->jenisBarang?->nama_jenis_barang ?? '-',
+                'satuan_stok' => $item->jenisBarang?->satuan_stok ?? '-',
+                'stok' => $item->stok,
+                'kadaluarsa' => $item->kadaluarsa,
+                'status_barang' => $item->status_barang,
+                'plate' => $item->plate,
+                'lokasi' => $item->gudang->nama,
+            ];
+        });
+
+        return response()->json($barangs);
+    }
+
+
+
 }

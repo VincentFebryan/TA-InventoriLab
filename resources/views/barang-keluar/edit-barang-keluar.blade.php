@@ -61,21 +61,37 @@
                 </div>
 
                 <div class="mb-3">
-                    <label for="supkonpro_id" class="form-label">Supplier/Konsumen/Proyek</label>
-                    <select name="supkonpro_id" class="form-control select2" id="supkonpro_id" disabled>
-                        <option value="">Pilih Jenis Supplier/Konsumen/Proyek</option>
-                        @foreach ($all_supkonpros as $supkonpro)
-                            <option value="{{ $supkonpro->id }}" 
-                                {{ $masterPengeluaran->supkonpro_id == $supkonpro->id ? 'selected' : '' }}>
-                                {{ $supkonpro->jenis }}  (Nama: {{ $supkonpro->nama }}) 
+                    <label for="supplier_id" class="form-label">Supplier</label>
+                    <select name="supplier_id" id="supplier_id" class="form-control" required>
+                        <option value="">-- Pilih Supplier --</option>
+                        @foreach($all_suppliers as $supplier)
+                            <option value="{{ $supplier->id }}" 
+                                {{ $masterPengeluaran->suppliers_id == $supplier->id ? 'selected' : '' }}>
+                                (Nama: {{ $supplier->nama }})
                             </option>
                         @endforeach
                     </select>
-                    @error('supkonpro_id')
-                        <span class="text-danger">{{$message}}</span>
+                    @error('supplier_id')
+                        <span class="text-danger">{{ $message }}</span>
                     @enderror
                 </div>
-                
+
+                <div class="mb-3">
+                    <label for="konsumen_id" class="form-label">Konsumen</label>
+                    <select name="konsumen_id" id="konsumen_id" class="form-control" required>
+                        <option value="">-- Pilih Konsumen --</option>
+                        @foreach($all_konsumens as $konsumen)
+                            <option value="{{ $konsumen->id }}" 
+                                {{ $masterPengeluaran->konsumens_id == $konsumen->id ? 'selected' : '' }}>
+                                (Nama: {{ $konsumen->nama }})
+                            </option>
+                        @endforeach
+                    </select>
+                    @error('konsumen_id')
+                        <span class="text-danger">{{ $message }}</span>
+                    @enderror
+                </div>
+
                 <div class="mb-3">
                     <label for="nama_pengambil" class="form-label">Nama Pengambil</label>
                     <input type="text" name="nama_pengambil" id="nama_pengambil" 

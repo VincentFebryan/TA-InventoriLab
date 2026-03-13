@@ -1,3 +1,6 @@
+<?php
+$url = url()->full();
+?>
 @extends('layouts.app')
 
 @section('title', 'Dashboard')
@@ -16,6 +19,7 @@
             {{-- <a href="{{ route('generateReport') }}" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm">
                 <i class="fas fa-download fa-sm text-white-50"></i> Generate Report
             </a> --}}
+            <meta http-equiv="refresh" content="10; URL='<?=$url?>'">
         </div>
         <form method="GET" class="mb-4">
             <div class="form-row align-items-center">
@@ -252,6 +256,43 @@
             </div>
         
     </div>
+    <h1 class="h3 mb-2 text-gray-800">Log Pengeluaran & Pemakaian Barang</h1>
+    <div class="card mb-4 shadow">
+        <div class="card-body table-responsive">
+            <table class="table table-bordered table-striped">
+                <thead>
+                    <tr>
+                        <th>Tanggal</th>
+                        <th>Nama Barang</th>
+                        <th>Jenis</th>
+                        <th>Jumlah Digunakan</th>
+                        <th>Keterangan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($logRealTime as $log) 
+                        <tr>
+                            <td>{{ \Carbon\Carbon::parse($log['tanggal'])->format('Y-m-d H:i') }}</td>
+                            <td>{{ $log['barang'] }}</td>
+                            <td>
+                                <span class="badge {{ $log['jenis'] === 'Pengeluaran' ? 'badge-danger' : 'badge-warning' }}">
+                                    {{ $log['jenis'] }}
+                                </span>
+                            </td>
+                            <td>{{ $log['jumlah'] }}</td>
+                            <td>{{ $log['keterangan'] }}</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="5" class="text-center text-muted">Belum ada Pengeluaran/Pemakaian</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+            <p class="text-muted small">Data diperbarui tiap 10 detik</p>
+        </div>
+    </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', function () {
                 const filterSelect = document.getElementById('filter');

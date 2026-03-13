@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\supkonpro;
 use App\Models\PenerimaanBarang;
 use App\Models\PengeluaranBarang;
 use Illuminate\Support\Facades\Route;
@@ -9,11 +8,15 @@ use App\Http\Controllers\BarangController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\SaldoAwalController;
-use App\Http\Controllers\SupkonproController;
 use App\Http\Controllers\JenisBarangController;
 use App\Http\Controllers\PenerimaanBarangController;
 use App\Http\Controllers\PengeluaranBarangController;
 use App\Http\Controllers\BillOfMaterialController;
+use App\Http\Controllers\GudangController;
+use App\Http\Controllers\KonsumenController;
+use App\Http\Controllers\ProyekController;
+use App\Http\Controllers\SupplierController;
+use App\Models\BillOfMaterial;
 
 Route::get('/', function () {
     return view('auth.login');
@@ -93,6 +96,7 @@ Route::middleware('auth')->group(function () {
     Route::get('delete-barang/{id}', [BarangController::class, 'deleteBarang']);
     Route::get('detail-barang/{id}', [BarangController::class, 'detailTransaksiBarang'])
                ->name('barang.detail');
+    Route::get('/get-barang', [BarangController::class, 'getBarang']);
 
     Route::get('saldo-awal', [SaldoAwalController::class, 'loadAllSaldoAwals'])->name('saldo-awal');
     Route::get('saldo-awal-search', [SaldoAwalController::class, 'search'])->name('saldoawals.search');
@@ -101,15 +105,6 @@ Route::middleware('auth')->group(function () {
     Route::post('add-saldo-awal', [SaldoAwalController::class, 'AddSaldoAwal'])->name('AddSaldoAwal');
     Route::get('get-saldo-awal-dan-transaksi', [SaldoAwalController::class, 'getSaldoAwalDanTransaksi'])->name('getSaldoAwalDanTransaksi');
     Route::get('/detail-saldo-awal/{barang_id}', [SaldoAwalController::class, 'detailSaldoAwal'])->name('detailSaldoAwal');
-    
-    Route::get('supkonpro/{jenis}', [SupkonproController::class, 'loadAllSupkonpros'])->name('supkonpro');
-    Route::get('supkonpro-search/{jenis}', [SupkonproController::class, 'search'])->name('supkonpros.search');
-    Route::get('supkonpros/{jenis}', [SupkonproController::class, 'loadAllSupkonpros']);
-    Route::get('add-{jenis}', [SupkonproController::class, 'loadAddSupkonproForm']);
-    Route::post('add-{jenis}', [SupkonproController::class, 'AddSupkonpro'])->name('AddSupkonpro');
-    Route::get('edit-supkonpro/{id}/{jenis}', [SupkonproController::class, 'loadEditForm'])->name('edit-supkonpro');
-    Route::put('edit-supkonpro/{id}/{jenis}', [SupkonproController::class, 'EditSupkonpro'])->name('EditSupkonpro');
-    Route::get('delete-supkonpro/{id}/{jenis}', [SupkonproController::class, 'deleteSupkonpro'])->name('supkonpro.delete');
 
     Route::get('kelola-user/{role}', [UserController::class, 'loadAllUsers'])->name('user');
     Route::get('kelola-user-search/{role}', [UserController::class, 'search'])->name('users.search');
@@ -178,10 +173,51 @@ Route::middleware('auth')->group(function () {
     Route::get('edit-jenis-barang-keluar/{id}', [PengeluaranBarangController::class, 'loadEditJenisBarangKeluarForm']);
     Route::put('edit-jenis-barang-keluar', [PengeluaranBarangController::class, 'EditJenisBarangKeluar'])
                ->name('EditJenisBarangKeluar');
-               
-    // Bill Of Material (BOM)
-    Route::resource('bill_of_materials', BillOfMaterialController::class);
-               
+    
+    //Routing Proyek
+    Route::resource('proyek', ProyekController::class);
+    Route::get('/proyek', [ProyekController::class, 'index'])->name('proyek.index');
+    Route::get('/add-proyek', [ProyekController::class, 'create']);
+    Route::post('/proyek', [ProyekController::class, 'store'])->name('proyek.store');
+    Route::get('/edit-proyek/{id}', [ProyekController::class, 'edit'])->name('proyek.edit');
+    Route::put('/proyek/{proyek}', [ProyekController::class, 'update'])->name('proyek.update');
+    Route::delete('/proyek/{id}', [ProyekController::class, 'destroy'])->name('proyek.destroy');
+
+    //Routing Konsumen 
+    Route::get('/konsumen', [KonsumenController::class, 'index'])->name('konsumen.index');
+    Route::get('/konsumen/create', [KonsumenController::class, 'create'])->name('konsumen.create');
+    Route::post('/konsumen', [KonsumenController::class, 'store'])->name('konsumen.store');
+    Route::get('/konsumen/{id}/edit', [KonsumenController::class, 'edit'])->name('konsumen.edit');
+    Route::put('/konsumen/{id}', [KonsumenController::class, 'update'])->name('konsumen.update');
+    Route::delete('/konsumen/{id}', [KonsumenController::class, 'destroy'])->name('konsumen.destroy');
+    Route::get('/konsumen/search', [KonsumenController::class, 'search'])->name('konsumen.search');
+
+    //Routing Supplier
+    Route::get('/supplier', [SupplierController::class, 'index'])->name('supplier.index');
+    Route::get('/supplier/create', [SupplierController::class, 'create'])->name('supplier.create');
+    Route::post('/supplier', [SupplierController::class, 'store'])->name('supplier.store');
+    Route::get('/supplier/{id}/edit', [SupplierController::class, 'edit'])->name('supplier.edit');
+    Route::put('/supplier/{id}', [SupplierController::class, 'update'])->name('supplier.update');
+    Route::delete('/supplier/{id}', [SupplierController::class, 'destroy'])->name('supplier.destroy');
+    Route::get('/supplier/search', [SupplierController::class, 'search'])->name('supplier.search');
+
+    //Routing Gudang
+    Route::get('/gudang', [GudangController::class, 'index'])->name('gudang.index');
+    Route::get('/gudang/create', [GudangController::class, 'create'])->name('gudang.create');
+    Route::post('/gudang', [GudangController::class, 'store'])->name('gudang.store');
+    Route::get('/gudang/{id}/edit', [GudangController::class, 'edit'])->name('gudang.edit');
+    Route::put('/gudang/{id}', [GudangController::class, 'update'])->name('gudang.update');
+    Route::delete('/gudang/{id}', [GudangController::class, 'destroy'])->name('gudang.destroy');
+    Route::get('/gudang/search', [GudangController::class, 'search'])->name('gudang.search');
+
+    //Routing BOM
+    Route::resource('bill_of_materials', BillOfMaterialController::class)->only([
+        'index', 'create', 'store', 'edit', 'update', 'destroy'
+    ]);
+    
+    //Route Barang keluar
+    Route::get('/barangkeluar/add', [PengeluaranBarangController::class, 'addBarangKeluarForm'])->name('barangkeluar.add');
+
 });
 
 require __DIR__.'/auth.php';

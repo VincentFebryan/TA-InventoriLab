@@ -11,10 +11,6 @@ return new class extends Migration {
             $table->id();
             $table->string('kode_bom')->unique();
             $table->string('nama_material');
-            $table->integer('jumlah');
-            $table->string('satuan');
-            $table->decimal('harga_per_unit', 10, 2);
-            $table->decimal('total_harga', 10, 2);
             $table->timestamps();
         });
     }

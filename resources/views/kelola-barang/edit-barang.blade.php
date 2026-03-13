@@ -61,15 +61,16 @@
                         @enderror
                     </div>
 
-                    <div class="mb-3">
+                    <div class="mb-3"> 
                         <label for="jenis_barang_id" class="form-label">Jenis Id Barang</label>
                         <select name="jenis_barang_id" class="form-control select2" id="jenis_barang_id">
                             <option value="">Pilih Jenis Barang</option>
                             @foreach ($jenis_barangs as $jenis_barang)
                                 <option value="{{ $jenis_barang->id }}" 
                                     {{ old('jenis_barang_id', $barang->jenis_barang_id) == $jenis_barang->id ? 'selected' : '' }}
-                                    data-nama-jenis-barang="{{ $jenis_barang->nama_jenis_barang }}">
-                                    {{ $jenis_barang->nama_jenis_barang }} (ID: {{ $jenis_barang->id }})
+                                    data-nama-jenis-barang="{{ $jenis_barang->nama_jenis_barang }}"
+                                    data-satuan-stok="{{ $jenis_barang->satuan_stok }}">
+                                    {{ $jenis_barang->nama_jenis_barang }} ({{ $jenis_barang->satuan_stok }})
                                 </option>
                             @endforeach
                         </select>                                             
@@ -77,6 +78,7 @@
                             <span class="text-danger">{{$message}}</span>
                         @enderror
                     </div>
+
 
                     <div class="mb-3">
                         <label for="stok" class="form-label">Stok</label>
@@ -98,11 +100,18 @@
                     </div>                    
                     
                     <div class="mb-3">
-                        <label for="lokasi" class="form-label">Lokasi</label>
-                        <input type="text" name="lokasi" id="lokasi" class="form-control" 
-                         value="{{ $barang->lokasi }}" placeholder="Enter lokasi barang">
-                        @error('lokasi')
-                            <span class="text-danger">{{ $message }}</span>
+                        <label for="gudang_id" class="form-label">Lokasi (Gudang)</label>
+                        <select name="gudang_id" id="gudang_id" class="form-control select2" required>
+                            <option value="">Pilih Gudang</option>
+                            @foreach($gudangs as $gudang)
+                                <option value="{{ $gudang->id }}" 
+                                    {{ old('gudang_id', $barang->gudang_id) == $gudang->id ? 'selected' : '' }}>
+                                    ({{ $gudang->kode_gudang }}) {{ $gudang->nama }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('gudang_id')
+                            <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
 

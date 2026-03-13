@@ -6,7 +6,8 @@ use App\Models\barang;
 use App\Models\DetailPenerimaanBarang;
 use Illuminate\Support\Facades\Auth;
 use App\Models\JenisPenerimaan;
-use App\Models\supkonpro;
+use App\Models\Supplier;
+use App\Models\Konsumen;
 use Illuminate\Http\Request;
 use App\Models\PenerimaanBarang;
 use App\Models\SaldoAwal;
@@ -27,7 +28,8 @@ class PenerimaanBarangController extends Controller
             ->appends(request()->except('page')); // Maintain other query parameters like search or filters
 
         // Ambil data untuk dropdown
-        $all_supkonpros = supkonpro::all();
+        $all_suppliers = Supplier::select('id', 'nama')->get();
+        $all_konsumens = Konsumen::select('id', 'nama')->get();
         $all_users = User::all();
         $all_jenis_penerimaans = JenisPenerimaan::all();
         $all_master_penerimaans = PenerimaanBarang::all();
@@ -35,7 +37,8 @@ class PenerimaanBarangController extends Controller
         // Return view dengan data yang sudah dipaginasi
         return view('barang-masuk.index', compact(
             'all_detail_penerimaans',
-            'all_supkonpros', 
+            'all_suppliers',
+            'all_konsumens',
             'all_users', 
             'all_jenis_penerimaans',
             'all_master_penerimaans'
@@ -61,16 +64,19 @@ class PenerimaanBarangController extends Controller
                         $innerQuery->where('invoice', 'like', "%$word%")
                             ->orWhere('tanggal', 'like', "%$word%")
                             ->orWhere('keterangan', 'like', "%$word%")
-                            ->orWhereHas('supkonpro', function ($relatedQuery) use ($word) {
-                                $relatedQuery->where('nama', 'like', "%$word%");
+                            ->orWhere('nama_pengantar', 'like', "%$word%")
+                            ->orWhereHas('supplier', function ($rq) use ($word) {
+                                $rq->where('nama', 'like', "%$word%");
                             })
-                            ->orWhereHas('user', function ($relatedQuery) use ($word) {
-                                $relatedQuery->where('name', 'like', "%$word%");
+                            ->orWhereHas('konsumen', function ($rq) use ($word) {
+                                $rq->where('nama', 'like', "%$word%");
+                            })
+                            ->orWhereHas('user', function ($rq) use ($word) {
+                                $rq->where('name', 'like', "%$word%");
                             })
                             ->orWhereHas('jenispenerimaanbarang', function ($relatedQuery) use ($word) {
                                 $relatedQuery->where('jenis', 'like', "%$word%");
-                            })
-                            ->orWhere('nama_pengantar', 'like', "%$word%");
+                            });
                     })
                     ->orWhereHas('barang', function ($innerQuery) use ($word) {
                         $innerQuery->where('nama_barang', 'like', "%$word%");
@@ -81,10 +87,9 @@ class PenerimaanBarangController extends Controller
                 });
             }
         })
-        ->paginate($perPage) // Use pagination for results
-        ->appends(request()->except('page')); // Preserve other parameters like query and perPage
+        ->paginate($perPage)
+        ->appends(request()->except('page'));
 
-        // Return the view with the results
         return view('barang-masuk.index', compact('all_detail_penerimaans'));
     }
 
@@ -92,99 +97,108 @@ class PenerimaanBarangController extends Controller
     public function loadAddBarangMasukForm()
     {
         $all_master_penerimaans = PenerimaanBarang::all();
-        $all_supkonpros = supkonpro::all();
+        $all_suppliers = Supplier::all();
+        $all_konsumens = Konsumen::all();
         $all_users = User::all();
         $all_jenis_penerimaans = JenisPenerimaan::all();
-        $user = Auth::user(); 
-        $all_barangs = barang::all();
-        
+        $all_barangs = Barang::all();
+        $user = Auth::user();
+
         return view('barang-masuk.add-barang-masuk', compact(
-            'all_master_penerimaans', 'all_supkonpros', 'all_users', 'all_jenis_penerimaans', 'user',
-            'all_barangs'
+            'all_master_penerimaans',
+            'all_suppliers',
+            'all_konsumens',
+            'all_users',
+            'all_jenis_penerimaans',
+            'all_barangs',
+            'user'
         ));
     }
+
 
     public function addBarangMasuk(Request $request)
     {
         // Validasi input
         $request->validate([
-            'jenis_id' => 'required',
-            'supkonpro_id' => 'required',
+            'jenis_id' => 'required|exists:jenis_penerimaan_barangs,id',
+            'supplier_id' => 'required|exists:suppliers,id',
+            'konsumen_id' => 'required|exists:konsumens,id',
             'user_id' => 'required|exists:users,id',
-            'nama_pengantar' => 'required|string',
+            'nama_pengantar' => 'required|string|max:255',
             'barang_id' => 'required|array',
+            'barang_id.*' => 'exists:barangs,id',
             'jumlah_diterima' => ['required', 'array', function ($attribute, $value, $fail) {
-                foreach ($value as $jumlah_diterima) {
-                    if ($jumlah_diterima <= 0) {
-                        $fail('Jumlah diterima harus lebih dari 0.');
+                foreach ($value as $jumlah) {
+                    if (!is_numeric($jumlah) || $jumlah <= 0) {
+                        $fail('Setiap jumlah diterima harus berupa angka dan lebih dari 0.');
                     }
                 }
             }],
             'harga' => 'required|array',
+            'harga.*' => 'numeric|min:0',
             'total_harga' => 'required|array',
+            'total_harga.*' => 'numeric|min:0',
             'tanggal' => 'required|date',
-            'invoice' => 'required|string',
+            'invoice' => 'required|string|max:255',
             'keterangan' => 'required|string',
-            'harga_invoice' => 'required',
+            'harga_invoice' => 'required|numeric|min:0',
         ]);
 
-        // Membuat PenerimaanBarang
+        // Buat record di tabel PenerimaanBarang
         $barangMasuk = new PenerimaanBarang();
         $barangMasuk->jenis_id = $request->jenis_id;
-        $barangMasuk->supkonpro_id = $request->supkonpro_id;
+        $barangMasuk->supplier_id = $request->supplier_id;
+        $barangMasuk->konsumen_id = $request->konsumen_id;
+        $barangMasuk->user_id = $request->user_id;
         $barangMasuk->nama_pengantar = $request->nama_pengantar;
         $barangMasuk->tanggal = $request->tanggal;
         $barangMasuk->invoice = $request->invoice;
         $barangMasuk->keterangan = $request->keterangan;
-        $barangMasuk->user_id = $request->user_id;
-        $barangMasuk->harga_invoice = str_replace(',', '', $request->harga_invoice);
+        $barangMasuk->harga_invoice = $request->harga_invoice;
         $barangMasuk->save();
 
-        // Insert detail barang
+        // Ambil bulan dan tahun dari tanggal
+        $tanggal = \Carbon\Carbon::parse($request->tanggal);
+        $bulan = $tanggal->month;
+        $tahun = $tanggal->year;
+
+        // Simpan detail barang dan update stok
         foreach ($request->barang_id as $key => $barangId) {
+            $jumlah = $request->jumlah_diterima[$key];
+            $harga = $request->harga[$key];
+            $total = $request->total_harga[$key];
+
+            // Simpan ke tabel detail
             $detail = new DetailPenerimaanBarang();
             $detail->master_penerimaan_barang_id = $barangMasuk->id;
             $detail->barang_id = $barangId;
-            $detail->jumlah_diterima = $request->jumlah_diterima[$key];
-            $detail->harga = str_replace(',', '', $request->harga[$key]);
-            $detail->total_harga = str_replace(',', '', $request->total_harga[$key]);
+            $detail->jumlah_diterima = $jumlah;
+            $detail->harga = $harga;
+            $detail->total_harga = $total;
             $detail->save();
 
-            // Update saldo_awals table based on barang_id
+            // Tambahkan stok barang
             $barang = Barang::findOrFail($barangId);
-            $barang->stok += $request->jumlah_diterima[$key];
+            $barang->stok += $jumlah;
             $barang->save();
 
-            // $tanggal = \Carbon\Carbon::parse($request->tanggal);
-            // $bulan = $tanggal->month;  
-            // $tahun = $tanggal->year; 
+            // Update atau insert ke saldo_awal
+            $saldoAwal = SaldoAwal::firstOrNew([
+                'barang_id' => $barangId,
+                'bulan' => $bulan,
+                'tahun' => $tahun,
+            ]);
 
-            // // Cek apakah saldo_awals sudah ada untuk bulan dan tahun tersebut dan barang_id yang sama
-            // $saldoAwal = SaldoAwal::where('barang_id', $barangId)
-            //                     ->where('bulan', $bulan)
-            //                     ->where('tahun', $tahun)  // Pastikan juga sesuai dengan tahun
-            //                     ->first();
-            
-            // if ($saldoAwal) {
-            //     // If exists, update total_keluar
-            //     $saldoAwal->total_terima += str_replace(',', '', $request->jumlah_diterima[$key]);
-            //     $saldoAwal->saldo_akhir += str_replace(',', '', $request->jumlah_diterima[$key]);
-            //     $saldoAwal->save();
-            // } else {
-            //     // If not exists, create a new entry
-            //     $saldoAwal = new SaldoAwal();
-            //     $saldoAwal->barang_id = $barangId;
-            //     $saldoAwal->bulan = $bulan;
-            //     $saldoAwal->tahun = $tahun;  // Set tahun
-            //     $saldoAwal->total_terima = str_replace(',', '', $request->jumlah_diterima[$key]);
-            //     $saldoAwal->saldo_awal = 0; 
-            //     $saldoAwal->total_keluar = 0; 
-            //     $saldoAwal->saldo_akhir = $detail->jumlah_diterima; 
-            //     $saldoAwal->save();
-            // }
+            $saldoAwal->total_terima += $jumlah;
+            if (!$saldoAwal->exists) {
+                $saldoAwal->saldo_awal = 0;
+                $saldoAwal->total_keluar = 0;
+            }
+            $saldoAwal->saldo_akhir = $saldoAwal->saldo_awal + $saldoAwal->total_terima - $saldoAwal->total_keluar;
+            $saldoAwal->save();
         }
-        return redirect()->route('master-barang-masuk')->with('success', 
-                                    'Barang Masuk berhasil ditambahkan.');
+
+        return redirect()->route('master-barang-masuk')->with('success', 'Barang Masuk berhasil ditambahkan.');
     }
 
     public function generateInvoicePenerimaan(Request $request)
@@ -277,32 +291,35 @@ class PenerimaanBarangController extends Controller
     }
 
 
-    public function detailMasterBarang($id)
+    public function detailMasterBarang($id) 
     {
-        $master_penerimaan = PenerimaanBarang::findOrFail($id);
-        $supkonpro = supkonpro::findOrFail($master_penerimaan->supkonpro_id);
-        $user = User::findOrFail($master_penerimaan->user_id);
-        $jenis_penerimaan = JenisPenerimaan::findOrFail($master_penerimaan->jenis_id);
-        $detail_penerimaan = DetailPenerimaanBarang::where('master_penerimaan_barang_id', $id)->get();
+        // Ambil data master penerimaan beserta relasi terkait
+        $master_penerimaan = PenerimaanBarang::with(['supplier', 'konsumen', 'user', 'jenisPenerimaan'])->findOrFail($id);
+
+        // Ambil detail penerimaan untuk master ini
+        $detail_penerimaan = DetailPenerimaanBarang::with('barang')
+                                ->where('master_penerimaan_barang_id', $id)
+                                ->get();
 
         return view('barang-masuk.detail-barang-masuk', compact(
-            'master_penerimaan', 'supkonpro', 'user', 'jenis_penerimaan', 'detail_penerimaan',
+            'master_penerimaan', 'detail_penerimaan'
         ));
     }
+
     
-    public function loadAllDetailPenerimaanBarang(){
-        $all_detail_penerimaans= DetailPenerimaanBarang::all();
-        $all_master_penerimaans = PenerimaanBarang::all();
-        $all_supkonpros = supkonpro::all();
-        $all_users = User::all();
-        $all_jenis_penerimaans = JenisPenerimaan::all();
-        $all_barangs = barang::all();
-        
-        return view('barang-masuk.index-detail',compact('all_detail_penerimaans',
-                    'all_master_penerimaans', 'all_supkonpros', 
-                    'all_users', 'all_jenis_penerimaans', 'all_barangs'));
+    public function loadAllDetailPenerimaanBarang()
+    {
+        $all_detail_penerimaans = DetailPenerimaanBarang::with([
+            'barang',
+            'masterPenerimaan.supplier',
+            'masterPenerimaan.konsumen',
+            'masterPenerimaan.user',
+            'masterPenerimaan.jenisPenerimaan'
+        ])->get();
+
+        return view('barang-masuk.index-detail', compact('all_detail_penerimaans'));
     }
-    
+  
     public function DetailBarangMasukSearch(Request $request)
     {
         $query = $request->input('query');
@@ -392,7 +409,8 @@ class PenerimaanBarangController extends Controller
         $detail_penerimaan = DetailPenerimaanBarang::findOrFail($id);
 
         $masterPenerimaan = $detail_penerimaan->penerimaanBarang;
-        $all_supkonpros = supkonpro::all();
+        $all_suppliers = Supplier::all();
+        $all_konsumens = Konsumen::all();
         $all_users = User::all();
         $all_jenis_penerimaans = JenisPenerimaan::all();
         $user = Auth::user(); 
@@ -400,7 +418,7 @@ class PenerimaanBarangController extends Controller
         // $detail_penerimaan = DetailPenerimaanBarang::all();
         // dd($masterPenerimaan->detail_penerimaan, $detail_penerimaan);
         return view('barang-masuk.edit-barang-masuk', compact(
-            'masterPenerimaan', 'all_supkonpros', 'all_users', 'all_jenis_penerimaans', 'user',
+            'masterPenerimaan', 'all_suppliers','all_konsumens', 'all_users', 'all_jenis_penerimaans', 'user',
             'all_barangs', 'detail_penerimaan'
         ));
     }
@@ -468,6 +486,51 @@ class PenerimaanBarangController extends Controller
             //     // Simpan perubahan
             //     $saldoAwal->save();
             // }
+        }
+
+        public function create()
+        {
+            $suppliers = Supplier::all();
+            $konsumens = Konsumen::all();
+            $jenis_penerimaans = JenisPenerimaan::all();
+
+            return view('barang-masuk.create', compact('suppliers', 'konsumens', 'jenis_penerimaans'));
+        }
+
+        public function store(Request $request) 
+        {
+            $request->validate([
+                'barang_id' => 'required|exists:barangs,id',
+                'jumlah_masuk' => 'required|numeric|min:1',
+                'harga' => 'required|numeric|min:0',
+                'total_harga' => 'required|numeric|min:0',
+                'supplier_id' => 'required|exists:suppliers,id',
+                'konsumen_id' => 'required|exists:konsumens,id',
+                'jenis_id' => 'required|exists:jenis_penerimaan_barangs,id',
+            ]);
+
+            $penerimaan = PenerimaanBarang::create([
+                'user_id' => Auth::id(),
+                'suppliers_id' => $request->supplier_id,
+                'konsumens_id' => $request->konsumen_id,
+                'jenis_penerimaan_id' => $request->jenis_penerimaan_id,
+                'tanggal_penerimaan' => now(),
+            ]);
+
+            DetailPenerimaanBarang::create([
+                'master_penerimaan_barang_id' => $penerimaan->id,
+                'barang_id' => $request->barang_id,
+                'jumlah_masuk' => $request->jumlah_masuk,
+                'harga' => $request->harga,
+                'total_harga' => $request->total_harga,
+            ]);
+
+            // Update stok barang
+            $barang = Barang::findOrFail($request->barang_id);
+            $barang->stok += $request->jumlah_masuk;
+            $barang->save();
+
+            return redirect()->route('barangmasuk.index')->with('success', 'Barang berhasil diterima');
         }
 
 }

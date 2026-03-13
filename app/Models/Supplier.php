@@ -2,18 +2,21 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class supkonpro extends Model
+class Supplier extends Model
 {
-    protected $table = 'supkonpros';
+    use HasFactory;
+
+    protected $table = 'suppliers';
 
     protected $fillable = [
         'nama',
         'alamat',
         'kota',
         'telepon',
-        'jenis',
+        'email', 
         'status',
     ];
 }

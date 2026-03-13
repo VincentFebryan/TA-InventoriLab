@@ -22,13 +22,13 @@
 <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
 <style>
     .select2-container .select2-dropdown {
-        max-height: 200px; /* Atur tinggi maksimal dropdown */
-        overflow-y: auto; /* Tambahkan scroll jika konten melebihi tinggi maksimal */
-        z-index: 9999; /* Pastikan dropdown berada di atas elemen lainnya */
+        max-height: 200px;
+        overflow-y: auto; 
+        z-index: 9999; 
     }
     .select2-container--bootstrap-5 .select2-selection--single {
-        height: calc(2.25rem + 2px); /* Sesuaikan dengan tinggi input form */
-        padding: 0.375rem 0.75rem; /* Tambahkan padding agar sejajar dengan elemen lainnya */
+        height: calc(2.25rem + 2px);
+        padding: 0.375rem 0.75rem; 
     }
 </style>
 <div class="container">
@@ -107,17 +107,19 @@
                 </div>
                 
                 <div class="mb-3">
-                    <label for="lokasi" class="form-label">Lokasi</label>
-                    <select name="lokasi" id="lokasi" class="form-control select2" placeholder="Enter lokasi barang">
-                        <option value="">Pilih atau ketik lokasi baru</option>
-                        @foreach ($lokasi_list as $lokasi)
-                            <option value="{{ $lokasi }}">{{ $lokasi }}</option>
+                    <label for="gudang_id" class="form-label">Lokasi (Gudang)</label>
+                    <select name="gudang_id" id="gudang_id" class="form-control @error('gudang_id') is-invalid @enderror" required>
+                        <option value="">Pilih Gudang</option>
+                        @foreach($gudangs as $gudang)
+                            <option value="{{ $gudang->id }}" {{ old('gudang_id') == $gudang->id ? 'selected' : '' }}>
+                                ({{ $gudang->kode_gudang }}) {{ $gudang->nama }}
+                            </option>
                         @endforeach
                     </select>
-                    @error('lokasi')
-                        <span class="text-danger">{{ $message }}</span>
+                    @error('gudang_id')
+                        <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
-                </div>            
+                </div>
 
                 {{-- <div class="mb-3">
                     <label for="status_barang" class="form-label">Status Barang</label>

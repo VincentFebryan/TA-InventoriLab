@@ -14,11 +14,54 @@ use Illuminate\Http\Request;
 use App\Models\PenerimaanBarang;
 use App\Models\PengeluaranBarang;
 use App\Models\SaldoAwal;
-use App\Models\supkonpro;
+use App\Models\Supplier;
+use App\Models\Konsumen;
+use App\Models\PenggunaanBarang;
+use App\Models\Proyek;
 use Illuminate\Support\Facades\Auth;
 
 class DashboardController extends Controller
 {
+    public function PengeluaranPemakaian(Request $request)
+    {
+        // === Ambil data pengeluaran barang ===
+        $pengeluaran = DetailPengeluaranBarang::with(['barang', 'PengeluaranBarang'])
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'tanggal' => $item->pengeluaranBarang->tanggal ?? $item->created_at, //menggunakan field tanggal dari parent
+                    'barang' => $item->barang->nama_barang ?? '-',                      
+                    'jenis' => 'Pengeluaran',
+                    'jumlah' => $item->jumlah_keluar,                                   
+                    'keterangan' => $item->pengeluaranBarang->keterangan ?? '-',        
+                ];
+            });
+
+        // === Ambil data pemakaian dari proyek ===
+        $pemakaian = Proyek::with(['barang', 'Proyek']) 
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'tanggal' => $item->created_at,
+                    'barang' => $item->barang->nama_barang ?? '-',                    
+                    'jenis' => 'Pemakaian',
+                    'jumlah' => $item->jumlah,                                        
+                    'keterangan' => $item->proyek->nama_bom ?? '-',                   
+                ];
+            });
+
+        //ambil hanya 10 terbaru
+        $logRealTime = $pengeluaran
+            ->merge($pemakaian)
+            ->sortByDesc('tanggal')
+            ->take(10);
+
+        return view('dashboard', [
+            'logRealTime' => $logRealTime
+        ]);
+    }
 
     private function getDateRange(Request $request, $filter = 'current_month')
     {
@@ -105,7 +148,7 @@ class DashboardController extends Controller
         $barangMasuk = PenerimaanBarang::whereBetween('tanggal', [$startDate, $endDate])->count();
         $barangKeluar = PengeluaranBarang::whereBetween('tanggal', [$startDate, $endDate])->count();
         $totalPerubahanPersediaan = $barangMasuk + $barangKeluar;
-      
+
         // Mengambil data stok minimal dan kadaluarsa
         $barangStokMinimal = Barang::where('stok', '<=', 20)->get();
         $twoMonthsLater = Carbon::now()->addMonths(2);
@@ -118,22 +161,49 @@ class DashboardController extends Controller
 
         // Jika tahun dan bulan dipilih, filter berdasarkan tahun dan bulan
         $allSaldoAwals = SaldoAwal::with('barang')
-                ->where('tahun', $tahun)
-                ->where('bulan', $bulan)
-                ->get();
-
-        // // Mengambil data saldo awal
-        // $allSaldoAwals = SaldoAwal::with('barang')
-        //     ->whereBetween('created_at', [$startDate, $endDate])
-        //     ->get();
+            ->where('tahun', $tahun)
+            ->where('bulan', $bulan)
+            ->get();
 
         // Menghitung total saldo
         $totalSaldoAwal = $allSaldoAwals->sum('saldo_awal');
         $totalSaldoTerima = $allSaldoAwals->sum('total_terima');
         $totalSaldoKeluar = $allSaldoAwals->sum('total_keluar');
 
-        // Prepare data untuk laporan
-        $data = [
+        //=== Fitur Real-time Log Pengeluaran & Pemakaian Barang ===
+        $pengeluaran = DetailPengeluaranBarang::with(['barang', 'pengeluaranBarang'])
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'tanggal' => $item->pengeluaranBarang->tanggal ?? $item->created_at,
+                    'barang' => $item->barang->nama_barang ?? '-',
+                    'jenis' => 'Pengeluaran',
+                    'jumlah' => $item->jumlah_keluar,
+                    'keterangan' => $item->pengeluaranBarang->keterangan ?? '-',
+                ];
+            });
+
+        $pemakaian = PenggunaanBarang::with(['barang', 'proyek'])
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'tanggal' => $item->created_at,
+                    'barang' => $item->barang->nama_barang ?? '-',
+                    'jenis' => 'Pemakaian',
+                    'jumlah' => $item->jumlah_digunakan,
+                    'keterangan' => $item->proyek->nama_bom ?? '-',
+                ];
+            });
+
+        $logRealTime = collect($pengeluaran)
+        ->merge(collect($pemakaian))
+        ->sortByDesc('tanggal')
+        ->take(10);
+
+        // Kirim semua data ke view
+        return view('dashboard', [
             'title' => 'Laporan',
             'date' => Carbon::now()->toFormattedDateString(),
             'filter' => $filter,
@@ -148,11 +218,9 @@ class DashboardController extends Controller
             'totalSaldoTerima' => $totalSaldoTerima,
             'totalSaldoKeluar' => $totalSaldoKeluar,
             'totalPerubahanPersediaan' => $totalPerubahanPersediaan,
-            'allSaldoAwals' => $allSaldoAwals, // Kirim data yang sudah dimodifikasi
-        ];
-
-        // Return the view
-        return view('dashboard', $data);
+            'allSaldoAwals' => $allSaldoAwals,
+            'logRealTime' => $logRealTime,
+        ]);
     }
 
     public function showBarangMasuk(Request $request)
@@ -165,7 +233,7 @@ class DashboardController extends Controller
         $endDate = $dates['endDate'];
 
         // Base query for DetailPenerimaanBarang with relationships
-        $query = DetailPenerimaanBarang::with('barang', 'penerimaanBarang.supkonpro', 'penerimaanBarang.jenispenerimaanbarang');
+        $query = DetailPenerimaanBarang::with('barang', 'penerimaanBarang.supplier', 'penerimaanBarang.jenispenerimaanbarang');
 
         // Filter by date range
         if ($startDate && $endDate) {
@@ -181,10 +249,10 @@ class DashboardController extends Controller
             });
         }
 
-        // Filter by supkonpro
-        if ($request->filled('supkonpro')) {
-            $query->whereHas('penerimaanBarang.supkonpro', function ($q) use ($request) {
-                $q->where('id', $request->supkonpro);
+        // Filter by supkonpro-konsumen
+        if ($request->filled('konsumen')) {
+            $query->whereHas('penerimaanBarang.konsumen', function ($q) use ($request) {
+                $q->where('id', $request->konsumen);
             });
         }
 
@@ -198,7 +266,7 @@ class DashboardController extends Controller
 
         // Retrieve options for filters
         $transactionTypes = JenisPenerimaan::all();
-        $supkonpro = SupKonPro::all();
+        $Supplier = Supplier::all();
         $products = Barang::all();
 
         // Prepare data for the view
@@ -209,7 +277,7 @@ class DashboardController extends Controller
             'user' => Auth::user()->name,
             'barangMasuk' => $barangMasuk,
             'transactionTypes' => $transactionTypes,
-            'supkonpro' => $supkonpro,
+            'supplier' => $Supplier,
             'products' => $products,
         ];
 
@@ -226,7 +294,7 @@ class DashboardController extends Controller
         $endDate = $dates['endDate'];
     
         // Base query for DetailPenerimaanBarang with relationships
-        $query = DetailPenerimaanBarang::with('barang', 'penerimaanBarang.supkonpro', 'penerimaanBarang.jenispenerimaanbarang');
+        $query = DetailPenerimaanBarang::with('barang', 'penerimaanBarang.supplier', 'penerimaanBarang.jenispenerimaanbarang');
     
         // Filter by date range
         if ($startDate && $endDate) {
@@ -247,14 +315,14 @@ class DashboardController extends Controller
         }
     
         // Filter by supkonpro
-        $selectedSupkonpro = null;
-        if ($request->filled('supkonpro')) {
-            $query->whereHas('penerimaanBarang.supkonpro', function ($q) use ($request) {
-                $q->where('id', $request->supkonpro);
+        $selectedSupplier = null;
+        if ($request->filled('supplier')) {
+            $query->whereHas('penerimaanBarang.supplier', function ($q) use ($request) {
+                $q->where('id', $request->supplier);
             });
     
             // Get the selected supkonpro
-            $selectedSupkonpro = SupKonPro::find($request->supkonpro);
+            $selectedSupplier = Supplier::find($request->supplier);
         }
     
         // Filter by product
@@ -287,7 +355,7 @@ class DashboardController extends Controller
             'startDate' => $startDate,
             'endDate' => $endDate,
             'selectedTransactionType' => $selectedTransactionType->jenis ?? '-',
-            'selectedSupkonpro' => $selectedSupkonpro->nama ?? '-',
+            'selectedSupplier' => $selectedSupplier->nama ?? '-',
             'selectedProduct' => $selectedProduct->nama_barang ?? '-',
             'totalJumlahDiterima' => $totalJumlahDiterima,
             'totalHargaInvoice' => $totalHargaInvoice,
@@ -310,7 +378,7 @@ class DashboardController extends Controller
         $endDate = $dates['endDate'];
 
         // Base query for DetailPenerimaanBarang with relationships
-        $query = DetailPengeluaranBarang::with('barang', 'pengeluaranBarang.supkonpro', 
+        $query = DetailPengeluaranBarang::with('barang', 'pengeluaranBarang.konsumen', 
                  'pengeluaranBarang.jenispengeluaranbarang');
 
         // Filter by date range
@@ -328,9 +396,9 @@ class DashboardController extends Controller
         }
         
         // Filter by supkonpro
-        if ($request->filled('supkonpro')) {
-            $query->whereHas('pengeluaranBarang.supkonpro', function ($q) use ($request) {
-                $q->where('id', $request->supkonpro);
+        if ($request->filled('konsumen')) {
+            $query->whereHas('pengeluaranBarang.konsumen', function ($q) use ($request) {
+                $q->where('id', $request->konsumen);
             });
         }
 
@@ -344,7 +412,7 @@ class DashboardController extends Controller
 
         // Retrieve options for filters
         $transactionTypes = JenisPengeluaran::all();
-        $supkonpro = SupKonPro::all();
+        $Supplier = Supplier::all();
         $products = Barang::all();
 
         // Prepare data for the view
@@ -355,7 +423,7 @@ class DashboardController extends Controller
             'user' => Auth::user()->name,
             'barangKeluar' => $barangKeluar,
             'transactionTypes' => $transactionTypes,
-            'supkonpro' => $supkonpro,
+            'supplier' => $Supplier,
             'products' => $products,
         ];
 
@@ -371,7 +439,7 @@ class DashboardController extends Controller
         $startDate = $dates['startDate'];
         $endDate = $dates['endDate'];
 
-        $query = DetailPengeluaranBarang::with('barang', 'pengeluaranBarang.supkonpro', 'pengeluaranBarang.jenispengeluaranbarang');
+        $query = DetailPengeluaranBarang::with('barang', 'pengeluaranBarang.konsumen', 'pengeluaranBarang.jenispengeluaranbarang');
 
         // Filter by date range
         if ($startDate && $endDate) {
@@ -392,14 +460,14 @@ class DashboardController extends Controller
         }
 
         // Filter by supkonpro
-        $selectedSupkonpro = null;
-        if ($request->filled('supkonpro')) {
-            $query->whereHas('pengeluaranBarang.supkonpro', function ($q) use ($request) {
-                $q->where('id', $request->supkonpro);
+        $selectedKonsumen = null;
+        if ($request->filled('konsumen')) {
+            $query->whereHas('pengeluaranBarang.konsumen', function ($q) use ($request) {
+                $q->where('id', $request->konsumen);
             });
 
             // Get the selected supkonpro
-            $selectedSupkonpro = SupKonPro::find($request->supkonpro);
+            $selectedKonsumen = Konsumen::find($request->konsumen);
         }
 
         // Filter by product
@@ -431,7 +499,7 @@ class DashboardController extends Controller
             'startDate' => $startDate,
             'endDate' => $endDate,
             'selectedTransactionType' => $selectedTransactionType->jenis ?? '-',
-            'selectedSupkonpro' => $selectedSupkonpro->nama ?? '-',
+            'selectedKonsumen' => $selectedKonsumen->nama ?? '-',
             'selectedProduct' => $selectedProduct->nama_barang ?? '-',
             'totalJumlahKeluar' => $totalJumlahKeluar,
             'totalHargaInvoice' => $totalHargaInvoice,
@@ -485,7 +553,7 @@ class DashboardController extends Controller
         $detailPenerimaan = DetailPenerimaanBarang::with([
             'PenerimaanBarang.jenisPenerimaanBarang',
             'PenerimaanBarang.user',
-            'PenerimaanBarang.supkonpro',
+            'PenerimaanBarang.supplier',
             'barang'
         ])
             ->whereHas('penerimaanBarang', function($query) use ($startDate, $endDate) {
@@ -498,7 +566,7 @@ class DashboardController extends Controller
         $detailPengeluaran = DetailPengeluaranBarang::with([
             'PengeluaranBarang.jenisPengeluaranBarang',
             'PengeluaranBarang.user',
-            'PengeluaranBarang.supkonpro',
+            'PengeluaranBarang.konsumen',
             'barang'
         ])
         ->whereHas('pengeluaranBarang', function($query) use ($startDate, $endDate) {
@@ -528,7 +596,7 @@ class DashboardController extends Controller
         $detailPenerimaan = DetailPenerimaanBarang::with([
             'PenerimaanBarang.jenisPenerimaanBarang',
             'PenerimaanBarang.user',
-            'PenerimaanBarang.supkonpro',
+            'PenerimaanBarang.supplier',
             'barang'
         ])
         ->whereHas('penerimaanBarang', function($query) use ($startDate, $endDate) {
@@ -541,7 +609,7 @@ class DashboardController extends Controller
         $detailPengeluaran = DetailPengeluaranBarang::with([
             'PengeluaranBarang.jenisPengeluaranBarang',
             'PengeluaranBarang.user',
-            'PengeluaranBarang.supkonpro',
+            'PengeluaranBarang.konsumen',
             'barang'
         ])
         ->whereHas('pengeluaranBarang', function($query) use ($startDate, $endDate) {
@@ -827,7 +895,7 @@ class DashboardController extends Controller
         $detailPenerimaan = DetailPenerimaanBarang::with([
             'PenerimaanBarang.jenisPenerimaanBarang',
             'PenerimaanBarang.user',
-            'PenerimaanBarang.supkonpro',
+            'PenerimaanBarang.supplier',
             'barang'
         ])
         ->whereHas('penerimaanBarang', function($query) use ($tahun, $bulan) {
@@ -849,7 +917,7 @@ class DashboardController extends Controller
         $detailPengeluaran = DetailPengeluaranBarang::with([
             'PengeluaranBarang.jenisPengeluaranBarang',
             'PengeluaranBarang.user',
-            'PengeluaranBarang.supkonpro',
+            'PengeluaranBarang.konsumen',
             'barang'
         ])
         ->whereHas('pengeluaranBarang', function($query) use ($tahun, $bulan) {
@@ -910,7 +978,7 @@ class DashboardController extends Controller
         $detailPenerimaan = DetailPenerimaanBarang::with([
             'PenerimaanBarang.jenisPenerimaanBarang',
             'PenerimaanBarang.user',
-            'PenerimaanBarang.supkonpro',
+            'PenerimaanBarang.supplier',
             'barang'
         ])
         ->whereHas('penerimaanBarang', function($query) use ($tahun, $bulan) {
@@ -932,7 +1000,7 @@ class DashboardController extends Controller
         $detailPengeluaran = DetailPengeluaranBarang::with([
             'PengeluaranBarang.jenisPengeluaranBarang',
             'PengeluaranBarang.user',
-            'PengeluaranBarang.supkonpro',
+            'PengeluaranBarang.konsumen',
             'barang'
         ])
         ->whereHas('pengeluaranBarang', function($query) use ($tahun, $bulan) {

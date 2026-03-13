@@ -18,7 +18,7 @@ class barang extends Model
 
     public function jenisBarang()
     {
-        return $this->belongsTo(jenis_barang::class, 'jenis_barang_id'); // Pastikan nama kelas ditulis dengan huruf besar
+        return $this->belongsTo(jenis_barang::class, 'jenis_barang_id'); 
     }
     
     public function penerimaanBarang()
@@ -47,9 +47,28 @@ class barang extends Model
     {
         return $this->belongsTo(JenisPengeluaran::class, 'jenis_id');
     }
-
-    public function supkonpro()
+    public function proyek()
     {
-        return $this->belongsTo(supkonpro::class, 'supkonpro_id');
+        return $this->belongsTo(proyek::class, 'proyek_id');
     }
+    public function supplier()
+    {
+        return $this->belongsTo(supplier::class, 'supplier_id');
+    }
+    public function konsumen()
+    {
+        return $this->belongsTo(konsumen::class, 'konsumen_id');
+    }
+    public function gudang()
+    {
+        return $this->belongsTo(Gudang::class, 'gudang_id');
+    }
+    
+
+    //method untuk cek status stok
+    public function isStokKurang(): bool
+    {
+        return $this->stok < $this->stok_minimum;
+    }
+
 }

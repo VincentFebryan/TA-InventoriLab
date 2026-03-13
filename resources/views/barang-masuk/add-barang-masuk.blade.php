@@ -52,23 +52,21 @@
                     @enderror
                 </div>
 
-                <!-- SupKonPro -->
-                <div class="mb-3">
-                    <label for="supkonpro_id" class="form-label">Supplier/Konsumen/Proyek</label>
-                    <select name="supkonpro_id" class="form-control select2" id="supkonpro_id" required>
-                        <option value="">Pilih Jenis Supplier/Konsumen/Proyek</option>
-                        @foreach ($all_supkonpros as $supkonpro)
-                            @if ($supkonpro->id >= 1)
-                                <option value="{{ $supkonpro->id }}" data-jenis="{{ $supkonpro->jenis }}">
-                                    {{ $supkonpro->jenis }} {{ $supkonpro->nama }} 
-                                </option>
-                            @endif
-                        @endforeach
-                    </select>
-                    @error('supkonpro_id')
-                        <span class="text-danger">{{ $message }}</span>
-                    @enderror
-                </div>
+                <label for="supplier_id">Supplier</label>
+                <select name="supplier_id" id="supplier_id" required>
+                    <option value="">-- Pilih Supplier --</option>
+                    @foreach ($all_suppliers as $supplier)
+                        <option value="{{ $supplier->id }}">{{ $supplier->nama }}</option>
+                    @endforeach
+                </select>
+
+                <label for="konsumen_id">Konsumen</label>
+                <select name="konsumen_id" id="konsumen_id" required>
+                    <option value="">-- Pilih Konsumen --</option>
+                    @foreach ($all_konsumens as $konsumen)
+                        <option value="{{ $konsumen->id }}">{{ $konsumen->nama }}</option>
+                    @endforeach
+                </select>
 
                 <div class="mb-3">
                     <label for="user_id" class="form-label">Nama</label>

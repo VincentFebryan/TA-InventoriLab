@@ -53,20 +53,35 @@
                     @enderror
                 </div>
 
-                <!-- SupKonPro -->
-                <div class="mb-3" id="supkonpro-container">
-                    <label for="supkonpro_id" class="form-label">Supplier/Konsumen/Proyek</label>
-                    <select name="supkonpro_id" class="form-control select2" id="supkonpro_id" required>
-                        <option value="">Pilih Jenis Supplier/Konsumen/Proyek</option>
-                        <option value="0">Tidak Ada</option>
-                        @foreach ($all_supkonpros as $supkonpro)
-                            <option value="{{ $supkonpro->id }}" data-jenis="{{ $supkonpro->jenis }}">
-                                {{ $supkonpro->jenis }} {{ $supkonpro->nama }}
+                <div class="mb-3">
+                    <label for="supplier_id" class="form-label">Supplier</label>
+                    <select name="supplier_id" id="supplier_id" class="form-control" required>
+                        <option value="">-- Pilih Supplier --</option>
+                        @foreach($all_suppliers as $supplier) 
+                            <option value="{{ $supplier->id }}" 
+                                    {{ old('supplier_id') == $supplier->id ? 'selected' : '' }}>
+                                {{ $supplier->nama }}
                             </option>
                         @endforeach
-                    </select>                          
-                    @error('supkonpro_id')
-                        <span class="text-danger">{{$message}}</span>
+                    </select>
+                    @error('supplier_id')
+                        <span class="text-danger">{{ $message }}</span>
+                    @enderror
+                </div>
+
+                <div class="mb-3">
+                    <label for="konsumen_id" class="form-label">Konsumen</label>
+                    <select name="konsumen_id" id="konsumen_id" class="form-control" required>
+                        <option value="">-- Pilih Konsumen --</option>
+                        @foreach($all_konsumens as $konsumen)  
+                            <option value="{{ $konsumen->id }}" 
+                                    {{ old('konsumen_id') == $konsumen->id ? 'selected' : '' }}>
+                                {{ $konsumen->nama }}
+                            </option>
+                        @endforeach
+                    </select>
+                    @error('konsumen_id')
+                        <span class="text-danger">{{ $message }}</span>
                     @enderror
                 </div>
 
@@ -168,11 +183,15 @@
     $(document).on('change', '#jenis_id', function () {
         const jenisId = $(this).val();
         if (jenisId === '0') {
-            $('#supkonpro_id').val('0').trigger('change'); // Set supkonpro_id ke 0
-            $('#supkonpro_id').prop('disabled', true); // Nonaktifkan dropdown
+            $('#supplier_id').val('0').trigger('change'); // Set supplier_id ke 0
+            $('#konsumen_id').val('0').trigger('change'); // Set konsumen_id ke 0
+            $('#supplier_id').prop('disabled', true); // Nonaktifkan supplier
+            $('#konsumen_id').prop('disabled', true); // Nonaktifkan konsumen
         } else {
-            $('#supkonpro_id').prop('disabled', false); // Aktifkan dropdown kembali
-            $('#supkonpro_id').val('').trigger('change'); // Reset nilai jika bukan 0
+            $('#supplier_id').prop('disabled', false); // Aktifkan supplier
+            $('#konsumen_id').prop('disabled', false); // Aktifkan konsumen
+            $('#supplier_id').val('').trigger('change'); // Reset nilai supplier
+            $('#konsumen_id').val('').trigger('change'); // Reset nilai konsumen
         }
     });
 

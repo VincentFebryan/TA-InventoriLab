@@ -9,17 +9,22 @@ class PengeluaranBarang extends Model
     protected $table = 'master_pengeluaran_barangs';
 
     protected $fillable = [
-        'supkonpro_id',
+        'supplier_id',
+        'konsumen_id',
         'user_id',
         'jenis_id',
         'nama_pengambil',
         'keterangan',
         'harga_invoice',
     ];
-
-    public function supkonpro()
+    public function supplier()
     {
-        return $this->belongsTo(supkonpro::class, 'supkonpro_id');
+        return $this->belongsTo(Supplier::class, 'supplier_id');
+    }
+
+    public function konsumen()
+    {
+        return $this->belongsTo(Konsumen::class, 'konsumen_id');
     }
     public function user()
     {
@@ -37,4 +42,5 @@ class PengeluaranBarang extends Model
     {
         return $this->hasMany(DetailPengeluaranBarang::class, 'master_pengeluaran_barang_id');
     }
+    
 }

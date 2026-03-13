@@ -10,40 +10,44 @@
 <script src="{{ asset('template/js/demo/datatables-demo.js') }}"></script>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" />
-
+@section('content')
 <div class="container">
-    <h2>Bill of Materials</h2>
-    <a href="{{ route('bill_of_materials.create') }}" class="btn btn-primary">Tambah BOM</a>
-    <table class="table">
+    <h3>Bill of Materials</h3>
+    <a href="{{ route('bill_of_materials.create') }}" class="btn btn-primary mb-3">Tambah BOM</a>
+
+    @if (session('success'))
+        <div class="alert alert-success">{{ session('success') }}</div>
+    @endif
+
+    <table class="table table-bordered">
         <thead>
             <tr>
                 <th>Kode BOM</th>
-                <th>Nama Material</th>
-                <th>Jumlah</th>
-                <th>Satuan</th>
-                <th>Harga/Unit</th>
-                <th>Total Harga</th>
+                <th>Nama BOM</th>
+                <th>Keterangan</th>
                 <th>Aksi</th>
             </tr>
         </thead>
         <tbody>
-            @foreach ($bill_of_materials as $bom)
-            <tr>
-                <td>{{ $bom->kode_bom }}</td>
-                <td>{{ $bom->nama_material }}</td>
-                <td>{{ $bom->jumlah }}</td>
-                <td>{{ $bom->satuan }}</td>
-                <td>{{ number_format($bom->harga_per_unit, 2) }}</td>
-                <td>{{ number_format($bom->total_harga, 2) }}</td>
-                <td>
-                    <a href="{{ route('bill_of_materials.edit', $bom->id) }}" class="btn btn-warning">Edit</a>
-                    <form action="{{ route('bill_of_materials.destroy', $bom->id) }}" method="POST" style="display:inline;">
-                        @csrf @method('DELETE')
-                        <button type="submit" class="btn btn-danger" onclick="return confirm('Hapus data ini?')">Hapus</button>
-                    </form>
-                </td>
-            </tr>
-            @endforeach
+            @forelse ($bill_of_materials as $bom)
+                <tr>
+                    <td>{{ $bom->kode_bom }}</td>
+                    <td>{{ $bom->nama_bom }}</td>
+                    <td>{{ $bom->keterangan }}</td>
+                    <td>
+                        <a href="{{ route('bill_of_materials.edit', $bom->id) }}" class="btn btn-warning btn-sm">Edit</a>
+                        <form action="{{ route('bill_of_materials.destroy', $bom->id) }}" method="POST" style="display:inline;">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" onclick="return confirm('Yakin hapus data ini?')" class="btn btn-danger btn-sm">Hapus</button>
+                        </form>
+                    </td>
+                </tr>
+            @empty
+                <tr>
+                    <td colspan="4" class="text-center">Data BOM belum tersedia.</td>
+                </tr>
+            @endforelse
         </tbody>
     </table>
 </div>

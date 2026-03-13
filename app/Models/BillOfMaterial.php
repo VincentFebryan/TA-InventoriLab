@@ -13,11 +13,8 @@ class BillOfMaterial extends Model
     
     protected $fillable = [
         'kode_bom',
-        'nama_material',
-        'jumlah',
-        'satuan',
-        'harga_per_unit',
-        'total_harga'
+        'nama_bom',
+        'keterangan'
     ];
 }
 
